@@ -1,0 +1,21 @@
+<?php
+
+namespace App\Filament\Resources\Visits\Pages;
+
+use App\Filament\Resources\Visits\VisitResource;
+use Filament\Resources\Pages\CreateRecord;
+
+class CreateVisit extends CreateRecord
+{
+    protected static string $resource = VisitResource::class;
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        // Pre-fill happened_at from URL query param
+        if (request()->filled('happened_at')) {
+            $data['happened_at'] = request()->query('happened_at');
+        }
+
+        return $data;
+    }
+}

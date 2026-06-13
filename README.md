@@ -64,3 +64,4 @@ The Laravel framework is open-sourced software licensed under the [MIT license](
 - Go-live runbook (sync upload): `docs/RUNBOOK_SYNC_UPLOAD_GO_LIVE.md`
 - Desktop client (Windows/macOS): `desktop-client/README.md`
 - Distribution guide (Windows/macOS): `docs/GUIDE_DISTRIBUTION_CLIENT_DESKTOP.md`
+- Courriers target menu and 4-week roadmap: `docs/COURRIERS_MENU_CIBLE_4_SEMAINES.md`

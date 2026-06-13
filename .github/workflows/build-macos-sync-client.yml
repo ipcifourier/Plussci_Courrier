@@ -1,0 +1,30 @@
+name: Build macOS Sync Client
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-13
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build macOS artifacts
+        working-directory: desktop-client
+        run: |
+          chmod +x build-macos.sh
+          ./build-macos.sh
+
+      - name: Upload macOS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: plussci-sync-client-macos
+          path: desktop-client/dist/plussci-sync-client-macos.tar.gz
+          if-no-files-found: error

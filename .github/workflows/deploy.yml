@@ -1,0 +1,173 @@
+name: Deploy to Production (pro.pluss.ci)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      skip_assets:
+        description: 'Ignorer la compilation des assets (si déjà compilés)'
+        required: false
+        default: false
+        type: boolean
+      skip_migrate:
+        description: 'Ignorer les migrations (urgence uniquement)'
+        required: false
+        default: false
+        type: boolean
+
+# Un seul déploiement à la fois
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 1. Tests avant déploiement
+  # ─────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Tests CI (pré-déploiement)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, dom, fileinfo, sqlite3, pdo_sqlite
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Installer les dépendances
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Préparer l'environnement de test
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+
+      - name: Exécuter les tests
+        run: php artisan test --parallel
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+          CACHE_STORE: array
+          QUEUE_CONNECTION: sync
+          SESSION_DRIVER: array
+          MAIL_MAILER: array
+          COURRIERS_EMAIL_NOTIFICATIONS: false
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 2. Build des assets frontend
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-assets:
+    name: Build assets Vite
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Installer les dépendances npm
+        run: npm ci
+
+      - name: Compiler les assets
+        run: npm run build
+        env:
+          VITE_APP_NAME: PLUSSCI-Courrier
+
+      - name: Uploader les assets compilés
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: public/build/
+          retention-days: 1
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 3. Déploiement sur le serveur Plesk
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Déploiement Plesk (pro.pluss.ci)
+    runs-on: ubuntu-latest
+    needs: [test, build-assets]
+    environment:
+      name: production
+      url: https://pro.pluss.ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Télécharger les assets compilés
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: public/build/
+
+      - name: Configurer la clé SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Ajouter le serveur aux known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Uploader les assets vers le serveur
+        run: |
+          rsync -az --delete \
+            public/build/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/public/build/
+
+      - name: Déployer (mode maintenance → pull → optimise → up)
+        run: |
+          SKIP_ASSETS_FLAG=""
+          if [ "${{ github.event.inputs.skip_assets }}" = "true" ]; then
+            SKIP_ASSETS_FLAG="--skip-assets"
+          fi
+
+          SKIP_MIGRATE_FLAG=""
+          if [ "${{ github.event.inputs.skip_migrate }}" = "true" ]; then
+            SKIP_MIGRATE_FLAG="--skip-migrate"
+          fi
+
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
+            "cd ${{ secrets.DEPLOY_PATH }} && bash deploy.sh --skip-assets $SKIP_MIGRATE_FLAG"
+
+      - name: Vérification post-déploiement
+        run: |
+          sleep 5
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://pro.pluss.ci)
+          if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "302" ]; then
+            echo "❌ Vérification échouée — HTTP $HTTP_STATUS"
+            exit 1
+          fi
+          echo "✔ Site accessible (HTTP $HTTP_STATUS)"
+
+      - name: Notifier le succès
+        if: success()
+        run: echo "✅ Déploiement production réussi — https://pro.pluss.ci"
+
+      - name: Notifier l'échec
+        if: failure()
+        run: echo "❌ Déploiement échoué — vérifier les logs"

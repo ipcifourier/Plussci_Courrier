@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="72" viewBox="0 0 320 72" role="img" aria-labelledby="title desc">
+  <title id="title">PLUSS.CI</title>
+  <desc id="desc">Logo texte PLUSS.CI avec monogramme P.</desc>
+  <defs>
+    <linearGradient id="plussGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B3A53" />
+      <stop offset="100%" stop-color="#0E7490" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="320" height="72" fill="none" />
+  <rect x="6" y="6" width="60" height="60" rx="14" fill="url(#plussGradient)" />
+  <path d="M24 22h16c8 0 14 5 14 12s-6 12-14 12h-8v12h-8V22zm8 8v8h8c4 0 6-2 6-4s-2-4-6-4h-8z" fill="#FFFFFF" />
+  <text x="80" y="47" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="700" fill="#0B3A53">PLUSS.CI</text>
+</svg>

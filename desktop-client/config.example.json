@@ -1,0 +1,10 @@
+{
+  "base_url": "https://votre-domaine.tld",
+  "token": "sync_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "sync_dir": "~/PLUSS_SYNC",
+  "scan_inbox_dir": "",
+  "poll_interval_minutes": 10,
+  "max_files_per_pull": 150,
+  "request_timeout_seconds": 30,
+  "verify_ssl": true
+}
